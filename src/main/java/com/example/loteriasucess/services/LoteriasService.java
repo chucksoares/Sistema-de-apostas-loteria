@@ -101,10 +101,44 @@ public class LoteriasService {
         return lotofacil;
     }
 
-    public List<List<String>> gerarJogos() {
-        List<Lotofacil> ultimosJogos = lotofacilRepository
-                .findTop10ByOrderByConcursoDesc();
+//    public List<List<String>> gerarJogos() {
+//        List<Lotofacil> ultimosJogos = lotofacilRepository
+//                .findTop10ByOrderByConcursoDesc();
+//
+//        Map<String, Integer> frequencias = new HashMap<>();
+//        for (Lotofacil jogo : ultimosJogos) {
+//            for (String dezena : jogo.getDezenas()) {
+//                frequencias.put(dezena, frequencias.getOrDefault(dezena, 0) + 1);
+//            }
+//        }
+//
+//        List<String> dezenasOrdenadas = frequencias.entrySet().stream()
+//                .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+//                .map(Map.Entry::getKey)
+//                .collect(Collectors.toList());
+//
+//        List<String> fixos = dezenasOrdenadas.subList(0, 5);
+//
+//        List<List<String>> novosJogos = new ArrayList<>();
+//        Random random = new Random();
+//        for (int i = 0; i < 5; i++) {
+//            List<String> jogo = new ArrayList<>(fixos);
+//
+//
+//            List<String> restantes = new ArrayList<>(frequencias.keySet());
+//            restantes.removeAll(fixos);
+//            Collections.shuffle(restantes, random);
+//            jogo.addAll(restantes.subList(0, 10));
+//
+//            Collections.sort(jogo);
+//            novosJogos.add(jogo);
+//        }
+//
+//        return novosJogos;
+//    }
 
+    public List<List<String>> gerarJogos() {
+        List<Lotofacil> ultimosJogos = lotofacilRepository.findTop50ByOrderByConcursoDesc();
         Map<String, Integer> frequencias = new HashMap<>();
         for (Lotofacil jogo : ultimosJogos) {
             for (String dezena : jogo.getDezenas()) {
@@ -112,30 +146,81 @@ public class LoteriasService {
             }
         }
 
-        List<String> dezenasOrdenadas = frequencias.entrySet().stream()
-                .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-
-        List<String> fixos = dezenasOrdenadas.subList(0, 5);
-
         List<List<String>> novosJogos = new ArrayList<>();
         Random random = new Random();
+
         for (int i = 0; i < 5; i++) {
-            List<String> jogo = new ArrayList<>(fixos);
+            Set<String> jogo = new HashSet<>(); // Usar Set para garantir unicidade
+            List<String> todasDezenas = new ArrayList<>();
 
+            // Preencher lista ponderada
+            for (String dezena : frequencias.keySet()) {
+                for (int j = 0; j < frequencias.get(dezena); j++) {
+                    todasDezenas.add(dezena);
+                }
+            }
+            Collections.shuffle(todasDezenas);
 
-            List<String> restantes = new ArrayList<>(frequencias.keySet());
-            restantes.removeAll(fixos);
-            Collections.shuffle(restantes, random);
-            jogo.addAll(restantes.subList(0, 10));
+            // Adicionar números até atingir 15 únicos
+            int index = 0;
+            while (jogo.size() < 15 && index < todasDezenas.size()) {
+                jogo.add(todasDezenas.get(index));
+                index++;
+            }
 
-            Collections.sort(jogo);
-            novosJogos.add(jogo);
+            // Se não atingir 15 (caso raro), completar com números não usados
+            while (jogo.size() < 15) {
+                String num;
+                do {
+                    num = String.format("%02d", random.nextInt(25) + 1);
+                } while (jogo.contains(num));
+                jogo.add(num);
+            }
+
+            // Converter para lista e ajustar paridade
+            List<String> jogoLista = new ArrayList<>(jogo);
+            int impares = (int) jogoLista.stream().mapToInt(Integer::parseInt).filter(n -> n % 2 != 0).count();
+            while (impares < 7 || impares > 9) {
+                if (impares < 7) {
+                    String par = jogoLista.stream().filter(n -> Integer.parseInt(n) % 2 == 0).findFirst().get();
+                    jogoLista.remove(par);
+                    jogoLista.add(getRandomImparNaoUsado(jogoLista, random));
+                } else {
+                    String impar = jogoLista.stream().filter(n -> Integer.parseInt(n) % 2 != 0).findFirst().get();
+                    jogoLista.remove(impar);
+                    jogoLista.add(getRandomParNaoUsado(jogoLista, random));
+                }
+                impares = (int) jogoLista.stream().mapToInt(Integer::parseInt).filter(n -> n % 2 != 0).count();
+            }
+
+            Collections.sort(jogoLista);
+            novosJogos.add(jogoLista);
         }
 
         return novosJogos;
     }
 
+    // Métodos auxiliares permanecem iguais
+    private String getRandomImparNaoUsado(List<String> jogo, Random random) {
+        List<String> impares = new ArrayList<>();
+        for (int i = 1; i <= 25; i += 2) {
+            String num = String.format("%02d", i);
+            if (!jogo.contains(num)) {
+                impares.add(num);
+            }
+        }
+        return impares.get(random.nextInt(impares.size()));
+    }
+
+    private String getRandomParNaoUsado(List<String> jogo, Random random) {
+        List<String> pares = new ArrayList<>();
+        for (int i = 2; i <= 25; i += 2) {
+            String num = String.format("%02d", i);
+            if (!jogo.contains(num)) {
+                pares.add(num);
+            }
+        }
+        return pares.get(random.nextInt(pares.size()));
+    }
 
 }

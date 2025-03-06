@@ -7,5 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 
 public interface LotofacilRepository extends JpaRepository<Lotofacil, Long> {
-    List<Lotofacil> findTop10ByOrderByConcursoDesc();
+    List<Lotofacil> findTop50ByOrderByConcursoDesc();
+
 }
